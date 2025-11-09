@@ -1,8 +1,10 @@
 import java.time.LocalTime;
+import java.time.format.DateTimeFormatter;
 
 public class Relogio {
 
     private LocalTime hora;
+    private static final DateTimeFormatter HORARIO_FORMATADO = DateTimeFormatter.ofPattern("HH:mm:ss.SSS");
 
     public Relogio (LocalTime horaInicial) {
         this.hora = horaInicial;
@@ -22,7 +24,7 @@ public class Relogio {
     }
 
     @Override
-    public synchronized String toString() {
-        return hora.toString();
+    public String toString() {
+        return hora.format(HORARIO_FORMATADO);
     }
 }
