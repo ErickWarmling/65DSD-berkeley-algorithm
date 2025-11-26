@@ -16,7 +16,7 @@ public class Relogio {
 
     public synchronized void aplicarAjusteHorario(long segundos) {
         hora = hora.plusSeconds(segundos);
-        System.out.println("Relógio ajustado para: " + hora);
+        System.out.println("Relógio ajustado para: " + this);
     }
 
     public synchronized long getSegundos() {

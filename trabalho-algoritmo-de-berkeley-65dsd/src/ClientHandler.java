@@ -33,6 +33,10 @@ public class ClientHandler {
         return horaCliente;
     }
 
+    public Socket getSocket() {
+        return socket;
+    }
+
     public void fecharConexao() {
         try {
             bufferedReader.close();

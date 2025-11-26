@@ -12,50 +12,49 @@ public class Servidor {
 
     private Relogio relogio;
     private List<ClientHandler> clientes = new CopyOnWriteArrayList<>();
-    private boolean sincronizacaoIniciada = false;
 
     public Servidor(LocalTime horaInicial) {
         relogio = new Relogio(horaInicial);
     }
 
     public void inicializarServidor(int tempoEsperaSegundos, int porta) throws IOException {
-        ServerSocket serverSocket = new ServerSocket(porta);
-        System.out.println("Servidor iniciado na porta: " + porta);
-        System.out.println("Hora inicial do servidor: " + relogio);
-        System.out.println("Aguardando clientes por " + tempoEsperaSegundos + " segundos");
+        System.out.println("╔══════════════════════════════════════════════════════════════════════════╗");
+        System.out.println("║                  Algoritmo de Berkeley (65DSD) – Servidor                ║");
+        System.out.println("╚══════════════════════════════════════════════════════════════════════════╝");
 
+        ServerSocket serverSocket = new ServerSocket(porta);
+        log("Porta: " + porta + " | Tempo de espera: " + tempoEsperaSegundos + "s");
+        log("Hora inicial do servidor → " + relogio);
+        log("Aguardando clientes...");
+
+        // Aceita conexões simultaneamente
         Thread acceptThread = new Thread(() -> {
-            while (!sincronizacaoIniciada) {
+            while (true) {
                 try {
                     Socket socket = serverSocket.accept();
+                    socket.setSoTimeout(3000); //Evitar travamento
                     ClientHandler cliente = new ClientHandler(socket);
                     clientes.add(cliente);
-                    System.out.println("Cliente conectado: " + socket.getInetAddress());
+                    String ip = socket.getInetAddress().getHostAddress();
+                    System.out.println("Cliente conectado → " + ip);
                 } catch (IOException e) {
-                    if (!sincronizacaoIniciada) {
-                        e.printStackTrace();
-                    }
+                    e.printStackTrace();
                 }
             }
         });
-
+        acceptThread.setDaemon(true);
         acceptThread.start();
 
-        try {
-            Thread.sleep(tempoEsperaSegundos * 1000L);
-        } catch (InterruptedException e) {
-            e.printStackTrace();
-        }
+        // Loop principal do servidor para aceitar conexões simultaneamente
+        while (true) {
+            try {
+                Thread.sleep(tempoEsperaSegundos * 1000L);
+            } catch (InterruptedException e) {}
 
-        sincronizacaoIniciada = true;
-        System.out.println("\nIniciando sincronização de relógios com " + clientes.size() + " clientes");
-        sincronizar();
-
-        for (ClientHandler cliente : clientes) {
-            cliente.fecharConexao();
+            log("\nIniciando sincronização de relógios com " + clientes.size() + " cliente(s)");
+            sincronizar();
+            exibirResultadoFinal();
         }
-        serverSocket.close();
-        System.out.println("Servidor encerrado!");
     }
 
     private void sincronizar() {
@@ -68,36 +67,77 @@ public class Servidor {
             for (ClientHandler cliente : clientes) {
                 cliente.enviarMensagem("REQ_HORA");
             }
+            log("Solicitações enviadas (REQ_HORA) → " + clientes.size() + " clientes");
 
             // Recebe os horários dos clientes
             for (ClientHandler cliente : clientes) {
-                String resposta = cliente.receberMensagem();
-                String[] partes = resposta.split(";");
-                if (partes[0].equals("HORA")) {
-                    long horaCliente = Long.parseLong(partes[1]);
-                    horarios.add(horaCliente);
-                    cliente.setHoraCliente(horaCliente);
+                try {
+                    String resposta = cliente.receberMensagem();
+
+                    // AJUSTE: se o cliente caiu, remover
+                    if (resposta == null) {
+                        removerCliente(cliente);
+                        continue;
+                    }
+
+                    String[] partes = resposta.split(";");
+                    if (partes[0].equals("HORA")) {
+                        long horaCliente = Long.parseLong(partes[1]);
+                        horarios.add(horaCliente);
+                        cliente.setHoraCliente(horaCliente);
+
+                        log("Recebido de " + cliente.getSocket().getInetAddress().getHostAddress()
+                                + " → " + horaCliente);
+                    }
+
+                } catch (Exception e) {
+                    removerCliente(cliente);
                 }
+            }
+
+            if (horarios.size() <= 1) {
+                log("Nenhum cliente disponível para sincronizar");
+                return;
             }
 
             // Calcula a média
             long soma = horarios.stream().mapToLong(Long::longValue).sum();
             long media = soma / horarios.size();
-            System.out.println("Hora média calculada: " + LocalTime.ofSecondOfDay(media));
+            log("Hora média calculada: " + LocalTime.ofSecondOfDay(media));
 
             // Envia o ajuste para cada cliente
             for (ClientHandler cliente : clientes) {
                 long ajusteHorario = media - cliente.getHoraCliente();
                 cliente.enviarMensagem("AJUSTE_HORARIO;" + ajusteHorario);
+                log("Enviando ajuste para " + cliente.getSocket().getInetAddress().getHostAddress() + " → " +
+                        (ajusteHorario >= 0 ? "+" : "") + ajusteHorario);
             }
 
             // Aplica o ajuste no servidor
             long ajusteServidor = media - relogio.getSegundos();
             relogio.aplicarAjusteHorario(ajusteServidor);
-            System.out.println("Servidor finalizado com hora ajustada: " + relogio);
+            log("Servidor ajustado em " + (ajusteServidor >= 0 ? "+" : "") + ajusteServidor + "s");
         } catch (Exception e) {
             e.printStackTrace();
         }
+    }
+
+    private void removerCliente(ClientHandler c) {
+        try {
+            log("Cliente desconectado: " + c.getSocket().getInetAddress().getHostAddress());
+            c.fecharConexao();
+            clientes.remove(c);
+        } catch (Exception ignored) {}
+    }
+
+    private void log(String msg) {
+        System.out.printf("[SERVIDOR]  %s%n", msg);
+    }
+
+    private void exibirResultadoFinal() {
+        System.out.println("======================================================");
+        System.out.println("        Hora final do servidor → " + relogio);
+        System.out.println("======================================================");
     }
 
     public static void main(String[] args) throws IOException {
