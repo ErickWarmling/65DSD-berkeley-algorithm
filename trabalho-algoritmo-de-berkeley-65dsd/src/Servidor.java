@@ -74,7 +74,6 @@ public class Servidor {
                 try {
                     String resposta = cliente.receberMensagem();
 
-                    // AJUSTE: se o cliente caiu, remover
                     if (resposta == null) {
                         removerCliente(cliente);
                         continue;
@@ -86,8 +85,11 @@ public class Servidor {
                         horarios.add(horaCliente);
                         cliente.setHoraCliente(horaCliente);
 
+                        long diferenca = horaCliente - relogio.getSegundos();
+                        String sinal = diferenca > 0 ? "+" : "";
+
                         log("Recebido de " + cliente.getSocket().getInetAddress().getHostAddress()
-                                + " → " + horaCliente);
+                                + " → " + horaCliente + " (" + sinal + diferenca + "s)");
                     }
 
                 } catch (Exception e) {

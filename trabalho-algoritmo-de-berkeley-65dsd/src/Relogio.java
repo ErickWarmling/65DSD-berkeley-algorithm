@@ -8,6 +8,26 @@ public class Relogio {
 
     public Relogio (LocalTime horaInicial) {
         this.hora = horaInicial;
+        iniciarRelogio();
+    }
+
+    private void iniciarRelogio() {
+        Thread t = new Thread(() -> {
+            while (true) {
+                try {
+                    Thread.sleep(1000); // 1 segundo real
+                } catch (InterruptedException ignored) {}
+
+                incrementar();
+            }
+        });
+
+        t.setDaemon(true);
+        t.start();
+    }
+
+    private synchronized void incrementar() {
+        hora = hora.plusSeconds(1);
     }
 
     public synchronized LocalTime getHora() {

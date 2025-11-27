@@ -69,7 +69,7 @@ public class Cliente {
         String servidor = props.getProperty("servidor");
         int porta = Integer.parseInt(props.getProperty("porta"));
 
-        Cliente cliente = new Cliente(LocalTime.now());
+        Cliente cliente = new Cliente(LocalTime.of(17, 0, 10));
         cliente.conectar(servidor, porta);
     }
 }
